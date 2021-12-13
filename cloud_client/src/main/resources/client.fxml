@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.Button?>
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="500.0"
+            prefWidth="530.0" xmlns="http://javafx.com/javafx/15.0.1" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="client.Controller"
+>
+    <HBox alignment="CENTER" fx:id="cloudPanel">
+        <VBox>
+            <padding>
+                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
+            </padding>
+            <Label  text="Клиент" style="-fx-font: bold 16 Courier;"
+                   alignment="CENTER" maxWidth="Infinity"/>
+            <ListView fx:id="clientFilesList" maxHeight="Infinity">
+            </ListView>
+            <TextField fx:id="input" onAction="#pressOnSendToCloudButton" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+            <HBox  alignment="CENTER">
+                <Button text="Отправить" onAction="#pressOnSendToCloudButton" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                <Button text="Удалить" onAction="#deleteFromClient" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                <Button text = "Выход" onAction="#closeConnection" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+            </HBox>
+        </VBox>
+
+        <VBox>
+            <padding>
+                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0"/>
+            </padding>
+            <Label  text="Сервер" style="-fx-font: bold 16 Courier;"
+                   alignment="CENTER" maxWidth="Infinity"/>
+            <ListView fx:id="serverFilesList" maxHeight="Infinity">
+            </ListView>
+            <HBox  alignment="CENTER">
+                <Button text="Скачать" HBox.hgrow="ALWAYS" maxWidth="Infinity"
+                        onAction="#pressOnDownloadButton"/>
+                <Button text="Удалить" HBox.hgrow="ALWAYS" maxWidth="Infinity"
+                        onAction="#deleteFromServer"/>
+            </HBox>
+        </VBox>
+    </HBox>
+
+<!--    <TextArea fx:id="output" layoutX="14.0" layoutY="14.0" prefHeight="335.0" prefWidth="568.0"/>-->
+<!--    <TextField fx:id="input" onAction="#sendMessage" layoutX="14.0" layoutY="349.0" prefHeight="38.0" prefWidth="568.0"/>-->
+</AnchorPane>
