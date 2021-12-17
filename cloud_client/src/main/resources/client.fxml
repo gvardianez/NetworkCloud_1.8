@@ -21,9 +21,8 @@
             </padding>
             <Label  text="Клиент" style="-fx-font: bold 16 Courier;"
                    alignment="CENTER" maxWidth="Infinity"/>
-            <ListView fx:id="clientFilesList" maxHeight="Infinity">
+            <ListView fx:id="clientFiles" maxHeight="Infinity">
             </ListView>
-            <TextField fx:id="input" onAction="#pressOnSendToCloudButton" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
             <HBox  alignment="CENTER">
                 <Button text="Отправить" onAction="#pressOnSendToCloudButton" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
                 <Button text="Удалить" onAction="#deleteFromClient" HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
@@ -37,7 +36,7 @@
             </padding>
             <Label  text="Сервер" style="-fx-font: bold 16 Courier;"
                    alignment="CENTER" maxWidth="Infinity"/>
-            <ListView fx:id="serverFilesList" maxHeight="Infinity">
+            <ListView fx:id="serverFiles" maxHeight="Infinity">
             </ListView>
             <HBox  alignment="CENTER">
                 <Button text="Скачать" HBox.hgrow="ALWAYS" maxWidth="Infinity"

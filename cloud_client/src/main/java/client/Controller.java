@@ -3,50 +3,72 @@ package client;
 import java.io.*;
 import java.net.Socket;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
 
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 
 public class Controller implements Initializable {
 
-    public ListView<String> serverFilesList;
-    private FileInputStream fis;
-    private FileOutputStream fos;
-    private InputStream is;
-    private OutputStream os;
-    private DataInputStream dis;
-    public TextField input;
+    private static final int BUFFER_SIZE = 8192; // 8Kb
+
+    private Path baseDir;
+    public ListView<String> clientFiles;
+    public ListView<String> serverFiles;
+    private DataInputStream is;
+    private DataOutputStream os;
+    private byte[] buffer;
+
+    public Controller() {
+        this.buffer = new byte[BUFFER_SIZE];
+    }
 
     private void read() {
         try {
             while (true) {
-                String message = dis.readUTF();
-                Platform.runLater(() -> processMessage(message));
+                String command = is.readUTF();
+                if (command.equals("#list#")) {
+                    int fileCount = is.readInt();
+                    Platform.runLater(() -> serverFiles.getItems().clear());
+                    for (int i = 0; i < fileCount; i++) {
+                        String name = is.readUTF();
+                        Platform.runLater(() -> serverFiles.getItems().add(name));
+                    }
+                }
+                if (command.equals("#reciveFile#")) {
+                    String fileName = is.readUTF();
+//                    long size = is.readLong();
+                    try (FileOutputStream fos = new FileOutputStream(
+                            baseDir.resolve(fileName).toFile())) {
+                        int count;
+                        while ((count = is.read(buffer)) > 0) {
+                            fos.write(buffer, 0, count);
+                        }
+                    }
+                    clientFiles.getItems().addAll(getFileNames());
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void processMessage(String message) {
-        System.out.println("proc");
-        ObservableList<String> list = FXCollections.observableArrayList(message.split("/"));
-        serverFilesList.setItems(list);
-        MultipleSelectionModel<String> nameModel = serverFilesList.getSelectionModel();
-        nameModel.setSelectionMode(SelectionMode.MULTIPLE);
-    }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         try {
+            baseDir = Paths.get(System.getProperty("user.home"));
+            clientFiles.getItems().addAll(getFileNames());
             Socket socket = new Socket("localhost", 8189);
-            dis = new DataInputStream(socket.getInputStream());
-            os = socket.getOutputStream();
+            is = new DataInputStream(socket.getInputStream());
+            os = new DataOutputStream(socket.getOutputStream());
             Thread thread = new Thread(this::read);
             thread.setDaemon(true);
             thread.start();
@@ -55,26 +77,30 @@ public class Controller implements Initializable {
         }
     }
 
+    private List<FileInfo> getClientFiles() throws IOException {
+        return Files.list(baseDir)
+                .map(FileInfo::new)
+                .collect(Collectors.toList());
+    }
+
+    private List<String> getFileNames() throws IOException {
+        return Files.list(baseDir)
+                .map(p -> p.getFileName().toString())
+                .collect(Collectors.toList());
+    }
+
+
     public void pressOnSendToCloudButton(ActionEvent actionEvent) {
-        System.out.println("send");
-        File file = new File(input.getText());
-        byte[] bytes = new byte[8192];
+        String file = clientFiles.getSelectionModel().getSelectedItem();
+        Path filePath = baseDir.resolve(file);
         try {
-            fis = new FileInputStream(file);
-            int count;
-            while ((count = fis.read(bytes)) > 0) {
-                os.write(bytes, 0, count);
-            }
-        } catch (FileNotFoundException e) {
-            System.out.println("file not found");
+            os.writeUTF("#upload#");
+            os.writeUTF(file);
+            os.writeLong(Files.size(filePath));
+            os.write(Files.readAllBytes(filePath));
+            os.flush();
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                if (fis != null) fis.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 
@@ -85,6 +111,15 @@ public class Controller implements Initializable {
     }
 
     public void pressOnDownloadButton(ActionEvent actionEvent) {
+        String file = serverFiles.getSelectionModel().getSelectedItem();
+        try {
+            os.writeUTF("#download#");
+            os.writeUTF(file);
+            os.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public void deleteFromServer(ActionEvent actionEvent) {
