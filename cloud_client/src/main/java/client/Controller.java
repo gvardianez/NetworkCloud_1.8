@@ -6,75 +6,65 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 import java.util.stream.Collectors;
 
+import io.netty.handler.codec.serialization.ObjectDecoderInputStream;
+import io.netty.handler.codec.serialization.ObjectEncoderOutputStream;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
+import javafx.scene.layout.HBox;
+import model.*;
 
 public class Controller implements Initializable {
 
-    private static final int BUFFER_SIZE = 8192; // 8Kb
-
-    private Path baseDir;
     public ListView<String> clientFiles;
     public ListView<String> serverFiles;
-    private DataInputStream is;
-    private DataOutputStream os;
-    private byte[] buffer;
-
-    public Controller() {
-        this.buffer = new byte[BUFFER_SIZE];
-    }
+    public TextField loginField;
+    public PasswordField passwordField;
+    public TextField loginFieldReg;
+    public PasswordField passwordFieldReg;
+    public TextField nickFieldReg;
+    private Path baseDir;
+    private ObjectDecoderInputStream is;
+    private ObjectEncoderOutputStream os;
 
     private void read() {
         try {
             while (true) {
-                String command = is.readUTF();
-                if (command.equals("#list#")) {
-                    int fileCount = is.readInt();
-                    Platform.runLater(() -> serverFiles.getItems().clear());
-                    for (int i = 0; i < fileCount; i++) {
-                        String name = is.readUTF();
-                        Platform.runLater(() -> serverFiles.getItems().add(name));
-                    }
-                }
-                if (command.equals("#reciveFile#")) {
-                    String fileName = is.readUTF();
-//                    long size = is.readLong();
-                    try (FileOutputStream fos = new FileOutputStream(
-                            baseDir.resolve(fileName).toFile())) {
-                        int count;
-                        while ((count = is.read(buffer)) > 0) {
-                            fos.write(buffer, 0, count);
-                        }
-                    }
-                    clientFiles.getItems().addAll(getFileNames());
+                AbstractMessage msg = (AbstractMessage) is.readObject();
+                switch (msg.getMessageType()) {
+                    case FILE:
+                        FileMessage fileMessage = (FileMessage) msg;
+                        Files.write(
+                                baseDir.resolve(fileMessage.getFileName()),
+                                fileMessage.getBytes()
+                        );
+                        Platform.runLater(() -> fillClientView(getFileNames()));
+                        break;
+                    case FILES_LIST:
+                        FilesList files = (FilesList) msg;
+                        Platform.runLater(() -> fillServerView(files.getFiles()));
+                        break;
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    private void fillServerView(List<String> list) {
+        serverFiles.getItems().clear();
+        serverFiles.getItems().addAll(list);
+    }
 
-    @Override
-    public void initialize(URL location, ResourceBundle resources) {
-        try {
-            baseDir = Paths.get(System.getProperty("user.home"));
-            clientFiles.getItems().addAll(getFileNames());
-            Socket socket = new Socket("localhost", 8189);
-            is = new DataInputStream(socket.getInputStream());
-            os = new DataOutputStream(socket.getOutputStream());
-            Thread thread = new Thread(this::read);
-            thread.setDaemon(true);
-            thread.start();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private void fillClientView(List<String> list) {
+        clientFiles.getItems().clear();
+        clientFiles.getItems().addAll(list);
     }
 
     private List<FileInfo> getClientFiles() throws IOException {
@@ -83,43 +73,72 @@ public class Controller implements Initializable {
                 .collect(Collectors.toList());
     }
 
-    private List<String> getFileNames() throws IOException {
-        return Files.list(baseDir)
-                .map(p -> p.getFileName().toString())
-                .collect(Collectors.toList());
+    private List<String> getFileNames() {
+        try {
+            return Files.list(baseDir)
+                    .map(p -> p.getFileName().toString())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
     }
 
-
-    public void pressOnSendToCloudButton(ActionEvent actionEvent) {
-        String file = clientFiles.getSelectionModel().getSelectedItem();
-        Path filePath = baseDir.resolve(file);
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
         try {
-            os.writeUTF("#upload#");
-            os.writeUTF(file);
-            os.writeLong(Files.size(filePath));
-            os.write(Files.readAllBytes(filePath));
-            os.flush();
+            baseDir = Paths.get(System.getProperty("user.home"));
+            clientFiles.getItems().addAll(getFileNames());
+            clientFiles.setOnMouseClicked(e -> {
+                if (e.getClickCount() == 2) {
+                    String file = clientFiles.getSelectionModel().getSelectedItem();
+                    Path path = baseDir.resolve(file);
+                    if (Files.isDirectory(path)) {
+                        baseDir = path;
+                        fillClientView(getFileNames());
+                    }
+                }
+            });
+            Socket socket = new Socket("localhost", 8189);
+            os = new ObjectEncoderOutputStream(socket.getOutputStream());
+            is = new ObjectDecoderInputStream(socket.getInputStream());
+            Thread thread = new Thread(this::read);
+            thread.setDaemon(true);
+            thread.start();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void deleteFromClient(ActionEvent actionEvent) {
+    public void upload(ActionEvent actionEvent) throws IOException {
+        String file = clientFiles.getSelectionModel().getSelectedItem();
+        Path filePath = baseDir.resolve(file);
+        os.writeObject(new FileMessage(filePath));
+    }
+
+    public void downLoad(ActionEvent actionEvent) throws IOException {
+        String file = serverFiles.getSelectionModel().getSelectedItem();
+        os.writeObject(new FileRequest(file));
+    }
+
+
+    public void registrationAuth(ActionEvent actionEvent) {
+    }
+
+    public void sendAuth(ActionEvent actionEvent) throws IOException {
+        os.writeObject(new AuthMessage(loginField.getText(),passwordField.getText()));
+    }
+
+    public void registration(ActionEvent actionEvent) throws IOException {
+        os.writeObject(new RegistrationAuth(loginFieldReg.getText(),nickFieldReg.getText(),passwordFieldReg.getText()));
+    }
+
+    public void goBackOnLoginPanel(ActionEvent actionEvent) {
     }
 
     public void closeConnection(ActionEvent actionEvent) {
     }
 
-    public void pressOnDownloadButton(ActionEvent actionEvent) {
-        String file = serverFiles.getSelectionModel().getSelectedItem();
-        try {
-            os.writeUTF("#download#");
-            os.writeUTF(file);
-            os.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
+    public void deleteOnClient(ActionEvent actionEvent) {
     }
 
     public void deleteFromServer(ActionEvent actionEvent) {
