@@ -1,6 +1,5 @@
 package server.autorization;
 
-
 import server.errors.LoginIsNotAvailableException;
 import server.errors.NicknameIsNotAvailableException;
 import server.errors.UserNotFoundException;
@@ -76,7 +75,7 @@ public class DataBaseAuthService implements AuthorizationService {
             preparedStatement.setString(1, nickname);
             resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) throw new NicknameIsNotAvailableException("");
-            preparedStatement = connection.prepareStatement("INSERT INTO `online_chat`.`users` (`nickname`, `login`, `password`) VALUES (?, ?, ?);");
+            preparedStatement = connection.prepareStatement("INSERT INTO `network_cloud`.`users` (`nickname`, `login`, `password`) VALUES (?, ?, ?);");
             preparedStatement.setString(1, nickname);
             preparedStatement.setString(2, login);
             preparedStatement.setString(3, password);
