@@ -18,7 +18,9 @@ import javafx.event.ActionEvent;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
-import model.*;
+import javafx.scene.layout.VBox;
+import server.model.*;
+
 
 public class Controller implements Initializable {
 
@@ -29,6 +31,9 @@ public class Controller implements Initializable {
     public TextField loginFieldReg;
     public PasswordField passwordFieldReg;
     public TextField nickFieldReg;
+    public VBox loginPanel;
+    public VBox registrationPanel;
+    public HBox cloudPanel;
     private Path baseDir;
     private ObjectDecoderInputStream is;
     private ObjectEncoderOutputStream os;
@@ -38,6 +43,14 @@ public class Controller implements Initializable {
             while (true) {
                 AbstractMessage msg = (AbstractMessage) is.readObject();
                 switch (msg.getMessageType()) {
+                    case ERROR:
+                        ErrorMessage errorMessage = (ErrorMessage) msg;
+                        Platform.runLater(() -> showError(errorMessage.getErrorMessage()));
+                        break;
+                    case AUTH_OK:
+                        loginPanel.setVisible(false);
+                        cloudPanel.setVisible(true);
+                        break;
                     case FILE:
                         FileMessage fileMessage = (FileMessage) msg;
                         Files.write(
@@ -55,6 +68,13 @@ public class Controller implements Initializable {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("ERROR");
+        alert.setHeaderText(message);
+        alert.showAndWait();
     }
 
     private void fillServerView(List<String> list) {
@@ -120,27 +140,47 @@ public class Controller implements Initializable {
         os.writeObject(new FileRequest(file));
     }
 
-
-    public void registrationAuth(ActionEvent actionEvent) {
+    public void registrationAuth(ActionEvent actionEvent) throws IOException {
+        os.writeObject(new RegistrationAuth(loginFieldReg.getText(), nickFieldReg.getText(), passwordFieldReg.getText()));
     }
 
     public void sendAuth(ActionEvent actionEvent) throws IOException {
-        os.writeObject(new AuthMessage(loginField.getText(),passwordField.getText()));
+        os.writeObject(new AuthMessage(loginField.getText(), passwordField.getText()));
     }
 
     public void registration(ActionEvent actionEvent) throws IOException {
-        os.writeObject(new RegistrationAuth(loginFieldReg.getText(),nickFieldReg.getText(),passwordFieldReg.getText()));
+        loginPanel.setVisible(false);
+        registrationPanel.setVisible(true);
     }
 
     public void goBackOnLoginPanel(ActionEvent actionEvent) {
+        loginPanel.setVisible(true);
+        registrationPanel.setVisible(false);
     }
 
     public void closeConnection(ActionEvent actionEvent) {
     }
 
     public void deleteOnClient(ActionEvent actionEvent) {
+        String file = clientFiles.getSelectionModel().getSelectedItem();
+        Path filePath = baseDir.resolve(file);
+        Platform.runLater(() -> fillClientView(getFileNames()));
+        try {
+            Files.delete(filePath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void deleteFromServer(ActionEvent actionEvent) {
+    }
+
+    public void back(ActionEvent actionEvent) {
+        if (baseDir.toString().length() != 3) baseDir = baseDir.getParent();
+        Platform.runLater(() -> fillClientView(getFileNames()));
+    }
+
+    public void refresh(ActionEvent actionEvent) {
+        Platform.runLater(() -> fillClientView(getFileNames()));
     }
 }

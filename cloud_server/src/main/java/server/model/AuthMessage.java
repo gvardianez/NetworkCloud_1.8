@@ -1,9 +1,9 @@
-package model;
+package server.model;
 
 import lombok.Data;
 
 @Data
-public class AuthMessage implements AbstractMessage{
+public class AuthMessage implements AbstractMessage {
 
     private String login;
     private String password;
